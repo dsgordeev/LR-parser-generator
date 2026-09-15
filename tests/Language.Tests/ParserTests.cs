@@ -22,7 +22,7 @@ public sealed class ParserTests
     [AssemblyInitialize]
     public static void AssemblyInit(TestContext context)
     {
-        var parserStateGenerator = new ParserGenerator<AstNodeExpression>(LanguageGrammar.Productions, LanguageGrammar.Program);
+        var parserStateGenerator = new ParserGenerator<AstNodeExpression>(LanguageGrammar.Productions, LanguageGrammar.Start);
         _parserState = parserStateGenerator.GenerateState();
 
         _options = new Parser<AstNodeExpression>.ParserOptions(token => token.Value switch
@@ -90,14 +90,44 @@ public sealed class ParserTests
             }
 
             """;
+
+        const string call =
+            """
+            function min(X, Y, Z, T, U: integer returns integer)
+                U
+            end function
+            
+            function Main(X, Y1, Y2, Y3: integer returns integer, integer)
+                min(X, Y1, Y2, Y3, Y2 - Y3)
+            end function
+
+            """;
+
+        AstMap[call] = "module [] uses [] with [] implements [ function \"min\" takes  \"X\", \"Y\", \"Z\", \"T\", \"U\" of \"integer\" and returns \"U\" as \"integer\" end function, function \"Main\" takes  \"X\", \"Y1\", \"Y2\", \"Y3\" of \"integer\" and returns \"min\"( \"X\", \"Y1\", \"Y2\", \"Y3\", \"Y2\" - \"Y3\") as  \"integer\", \"integer\" end function]";
+        CsMap[call] = "public static void min ( int   X ,  int   Y ,  int   Z ,  int   T ,  int   U , int )\r\n{\r\n    y1 =  U ;\r\n}\r\npublic static void Main ( int   X ,  int   Y1 ,  int   Y2 ,  int   Y3 , out  int  y1, out  int  y2)\r\n{\r\n    y1 =     |!PostfixNode!|;\r\n}\r\n";
+        CppMap[call] =
+            """
+            
+            std::make_tuple(
+                static int min(int X, int Y, int Z, int T, int U)
+            {
+                    return U;
+            }
+            , 
+                static std::tuple<int, int> Main(int X, int Y1, int Y2, int Y3)
+            {
+                    return min(std::make_tuple(X, Y1, Y2, Y3, (Y2 - Y3)));
+            }
+            )
+            """;
     }
 
     [TestMethod]
     [DynamicData(nameof(GetTestData), DynamicDataSourceType.Method)]
-    public void Parse_WhenArithmeticExpression_ReturnsAst(string input, string expected, string csTranslation, string cppTranslation)
+    public void Parse_WhenExpression_ReturnsAst(string input, string expected, string csTranslation, string cppTranslation)
     {
         // Arrange
-        var lexer = new Lexer();
+        var lexer = new LanguageLexer();
         var parser = new Parser<AstNodeExpression>(_parserState, [.. LanguageGrammar.Productions], _options);
 
         // Act
@@ -105,14 +135,40 @@ public sealed class ParserTests
 
         // Assert
         Assert.AreEqual(expected, ast.ToString());
-
-        var csResult = Convert(ast, x => new CsTranslatorVisitor(x));
-        Assert.AreEqual(csTranslation, csResult);
-
-        var cppResult = Convert(ast, x => new CppTranslatorVisitor(x));
-        Assert.AreEqual(cppTranslation, cppResult);
     }
 
+    [TestMethod]
+    [DynamicData(nameof(GetTestData), DynamicDataSourceType.Method)]
+    public void Convert_WhenExpression_ReturnsCsCode(string input, string expected, string csTranslation, string cppTranslation)
+    {
+        // Arrange
+        var lexer = new LanguageLexer();
+        var parser = new Parser<AstNodeExpression>(_parserState, [.. LanguageGrammar.Productions], _options);
+        var ast = parser.Parse(lexer.Reset(input).Tokenize());
+
+        // Act
+        var csResult = Convert(ast, x => new CsTranslatorVisitor(x));
+
+        // Assert
+        Assert.AreEqual(csTranslation, csResult);
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(GetTestData), DynamicDataSourceType.Method)]
+    public void Convert_WhenExpression_ReturnsCppCode(string input, string expected, string csTranslation, string cppTranslation)
+    {
+        // Arrange
+        var lexer = new LanguageLexer();
+        var parser = new Parser<AstNodeExpression>(_parserState, [.. LanguageGrammar.Productions], _options);
+        var ast = parser.Parse(lexer.Reset(input).Tokenize());
+
+        // Act
+        var cppResult = Convert(ast, x => new CppTranslatorVisitor(x));
+
+        // Assert
+        Assert.AreEqual(cppTranslation, cppResult);
+    }
+    
     private static string Convert(AstNodeExpression astNode, Func<TextWriter, AstNodeExpressionVisitor> visitor)
     {
         var sb = new StringBuilder();

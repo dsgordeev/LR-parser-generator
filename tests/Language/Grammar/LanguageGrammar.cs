@@ -7,7 +7,6 @@ namespace Language.Grammar;
 
 public class LanguageGrammar
 {
-    // Terminal symbols
     // ReSharper disable InconsistentNaming
     public static readonly Symbol ID = new(nameof(ID), SymbolType.Terminal);
     public static readonly Symbol NUM = new(nameof(NUM), SymbolType.Terminal);
@@ -19,7 +18,7 @@ public class LanguageGrammar
     public static readonly Symbol DIV = new("/", SymbolType.Terminal);
     public static readonly Symbol POWER = new("**", SymbolType.Terminal);
     public static readonly Symbol MOD = new("%", SymbolType.Terminal);
-    public static readonly Symbol EQ = new("=", SymbolType.Terminal);
+    public static readonly Symbol EQ = new("==", SymbolType.Terminal);
     public static readonly Symbol NEQ = new("!=", SymbolType.Terminal);
     public static readonly Symbol LT = new("<", SymbolType.Terminal);
     public static readonly Symbol GT = new(">", SymbolType.Terminal);
@@ -53,7 +52,6 @@ public class LanguageGrammar
     public static readonly Symbol STRING = new(nameof(STRING), SymbolType.Terminal);
     public static readonly Symbol CHAR = new(nameof(CHAR), SymbolType.Terminal);
     public static readonly Symbol BOOLEAN = new(nameof(BOOLEAN), SymbolType.Terminal);
-    public static readonly Symbol EOF = new("$", SymbolType.EndOfInput);
     // ReSharper restore InconsistentNaming
 
     public static readonly Dictionary<string, Symbol> KeywordSymbols = new()
@@ -75,7 +73,6 @@ public class LanguageGrammar
         ["boolean"] = BOOLEAN
     };
 
-    // Non-terminal symbols
     public static readonly Symbol Program = new(nameof(Program), SymbolType.NonTerminal);
     public static readonly Symbol ExprList = new(nameof(ExprList), SymbolType.NonTerminal);
     public static readonly Symbol Expr = new(nameof(Expr), SymbolType.NonTerminal);
@@ -89,7 +86,7 @@ public class LanguageGrammar
     public static readonly Symbol Expr8 = new(nameof(Expr8), SymbolType.NonTerminal);
     public static readonly Symbol Expr9 = new(nameof(Expr9), SymbolType.NonTerminal);
     public static readonly Symbol Expr10 = new(nameof(Expr10), SymbolType.NonTerminal);
-    public static readonly Symbol BoolExpr = new(nameof(BoolExpr), SymbolType.NonTerminal);
+    public static readonly Symbol Expr11 = new(nameof(Expr11), SymbolType.NonTerminal);
     public static readonly Symbol Term = new(nameof(Term), SymbolType.NonTerminal);
     public static readonly Symbol Factor = new(nameof(Factor), SymbolType.NonTerminal);
     public static readonly Symbol IfExpr = new(nameof(IfExpr), SymbolType.NonTerminal);
@@ -102,6 +99,9 @@ public class LanguageGrammar
     public static readonly Symbol ParamGroup = new(nameof(ParamGroup), SymbolType.NonTerminal);
     public static readonly Symbol ParamNames = new(nameof(ParamNames), SymbolType.NonTerminal);
     public static readonly Symbol PostfixOp = new(nameof(PostfixOp), SymbolType.NonTerminal);
+    public static readonly Symbol ArgsExprList = new(nameof(ArgsExprList), SymbolType.NonTerminal);
+    public static readonly Symbol OptHeadArgsExprList = new(nameof(OptHeadArgsExprList), SymbolType.NonTerminal);
+    public static readonly Symbol OptTrailArgsExprList = new(nameof(OptTrailArgsExprList), SymbolType.NonTerminal);
 
     public static readonly Symbol TypeValue = new(nameof(TypeValue), SymbolType.NonTerminal);
     public static readonly Symbol PrimitiveType = new(nameof(PrimitiveType), SymbolType.NonTerminal);
@@ -127,8 +127,8 @@ public class LanguageGrammar
         vs => new ExprListNode([vs[0], ..vs[2].AsList()])),
 
     new(ParamNames, [ID]),
-    new(ParamNames, [ID , COMMA, ParamNames],
-        vs => new ExprListNode([vs[0], ..vs[2].AsList()])),
+    new(ParamNames, [ParamNames, COMMA, ID],
+        vs => new ExprListNode([..vs[0].AsList(), vs[2]])),
 
     new(TypeValue, [PrimitiveType]),
     new(TypeValue, [FunctionType]),
@@ -145,8 +145,8 @@ public class LanguageGrammar
     new(FunctionType, [FUNCTION, LBRACKET, TypeList, RETURNS, TypeList, RBRACKET], vs => new TypeNode.FunctionTypeNode(null, vs[2], vs[4])),
 
     new(TypeList, [TypeValue]),
-    new(TypeList, [TypeValue, COMMA, TypeList],
-        vs => new ExprListNode([vs[0], ..vs[2].AsList()])),
+    new(TypeList, [TypeList, COMMA, TypeValue],
+        vs => new ExprListNode([..vs[0].AsList(), vs[2]])),
     
     // Expressions
     // Starting with the lowest priority 1: concatenation (||) - left associative
@@ -215,32 +215,51 @@ public class LanguageGrammar
         vs => new UnaryOpNode("!", vs[1])),
     new(Expr9, [Expr10]),
     
-    // Atomic expressions
-    new(Expr10, [TRUE], _ => new BoolNode(true)),
-    new(Expr10, [FALSE], _ => new BoolNode(false)),
-    new(Expr10, [STRING]),
-    new(Expr10, [NUM]),
-    new(Expr10, [ID]),
-    
-    // Parenthesized expressions
-    new(Expr10, [LPAREN, Expr, RPAREN], vs => vs[1].WithWrap()),
-    
-    // Postfix operations
+    // Postfix expressions
     new(Expr10, [Expr10, PostfixOp],
         vs => new PostfixNode(vs[0], vs[1])),
+    new(Expr10, [Expr11]),
+    
+    // Atomic expressions
+    new(Expr11, [TRUE], _ => new BoolNode(true)),
+    new(Expr11, [FALSE], _ => new BoolNode(false)),
+    new(Expr11, [STRING]),
+    new(Expr11, [NUM]),
+    new(Expr11, [ID]),
+    
+    // Parenthesized expressions
+    new(Expr11, [LPAREN, Expr, RPAREN], vs => vs[1].WithWrap()),
 
     // Postfix operation types
-    new(PostfixOp, [LPAREN, ExprList, RPAREN],
+    new(PostfixOp, [LPAREN, ArgsExprList, RPAREN],
         vs => new PostfixNode.FunctionCallNode(vs[1])),
     new(PostfixOp, [LPAREN, RPAREN],
-        vs => new PostfixNode.FunctionCallNode(null)),
+        vs => new PostfixNode.FunctionCallNode(null).WithPosition(vs)),
     new(PostfixOp, [COLON, PrimitiveType],
         vs => new PostfixNode.TypeCastNode(vs[1])),
 
     // Expression list
     new(ExprList, [Expr]),
-    new(ExprList, [Expr, COMMA, ExprList],
-        vs => new ExprListNode([vs[0], ..vs[2].AsList()])),
+    new(ExprList, [ExprList, COMMA, Expr],
+        vs => new ExprListNode([..vs[0].AsList(), vs[2]])),
+
+    // ArgsExprList: entry point for function call arguments
+    new(ArgsExprList, [OptTrailArgsExprList]),
+    new(ArgsExprList, [OptHeadArgsExprList, OptTrailArgsExprList],
+        vs => new ExprListNode([..vs[0].AsList(), ..vs[1].AsList()])),
+    new(ArgsExprList, [OptHeadArgsExprList]),
+
+    new(OptHeadArgsExprList, [COMMA],
+        vs => new ExprListNode([ExprListNode.Missed.WithPosition(vs)])),
+    new(OptHeadArgsExprList, [OptHeadArgsExprList, COMMA],
+        vs => new ExprListNode([..vs[0].AsList(), ExprListNode.Missed.WithPosition(vs)])),
+
+    new(OptTrailArgsExprList, [Expr],
+        vs => new ExprListNode([vs[0]])),
+    new(OptTrailArgsExprList, [OptTrailArgsExprList, COMMA, Expr],
+        vs => new ExprListNode([..vs[0].AsList(), vs[2]])),
+    new(OptTrailArgsExprList, [OptTrailArgsExprList, COMMA],
+        vs => new ExprListNode([..vs[0].AsList(), ExprListNode.Missed.WithPosition(vs)])),
 
     // Other expressions (If, LetIn, For loops)
     new(Expr, [IfExpr]),

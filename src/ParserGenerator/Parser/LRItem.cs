@@ -36,5 +36,5 @@ public class LRItem<TAstNode>(Production<TAstNode> production, int position, Sym
         return hash;
     }
 
-    public override string ToString() => $"{Production.Left} -> {string.Join(" ", Production.Right.Take(Position))}•{string.Join(" ", Production.Right.Skip(Position))}, {Lookahead}";
+    public override string ToString() => $"{Production.Left} -> {string.Join(" ", Production.Right.Take(Position))}•{string.Join(" ", Production.Right.Skip(Position))} ⤴ {Lookahead}";
 }

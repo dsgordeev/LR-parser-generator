@@ -4,12 +4,16 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/SolutionItems/">
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/ParserGenerator/ParserGenerator.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Language.Ast.Algorithms/Language.Ast.Algorithms.csproj" />
-    <Project Path="tests/Language.Tests/Language.Tests.csproj"/>
+    <Project Path="tests/Language.Tests/Language.Tests.csproj" />
     <Project Path="tests/Language/Language.csproj" />
   </Folder>
 </Solution>

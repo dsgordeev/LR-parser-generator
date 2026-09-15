@@ -5,7 +5,7 @@ using ParserGenerator.Positions;
 
 namespace Language.Ast;
 
-public abstract class AstNodeExpression : Expression, IWithPosition<AstNodeExpression>
+public abstract class AstNodeExpression : Expression, IWithPosition<AstNodeExpression>, IWithPosition
 {
     public int WrapCount { get; private set; }
 
@@ -17,11 +17,14 @@ public abstract class AstNodeExpression : Expression, IWithPosition<AstNodeExpre
 
     public AstNodeExpression WithPosition(IList<AstNodeExpression> list)
     {
-        Position = list[0].Position with
+        Position = list.Count != 0
+            ? list[0].Position with
         {
             EndRow = list[^1].Position.EndRow,
             EndCol = list[^1].Position.EndCol
-        };
+            }
+            : new Position();
+
         return this;
     }
 

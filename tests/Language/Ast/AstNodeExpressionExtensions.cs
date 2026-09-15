@@ -9,12 +9,17 @@ public static class AstNodeExpressionExtensions
     public static List<TNode> AsList<TNode>(this AstNodeExpression x)
         where TNode : AstNodeExpression
     {
-        return x switch
+        IEnumerable<TNode> Unwrap(AstNodeExpression y)
         {
-            ExprListNode list => list.Expressions.Cast<TNode>().ToList(),
+            return y switch
+            {
+                ExprListNode list => list.Expressions.SelectMany(Unwrap),
             TNode tNode => [tNode],
             _ => []
         };
+    }
+
+        return [.. Unwrap(x)];
     }
 
     public static TNode? As<TNode>(this AstNodeExpression x)

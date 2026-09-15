@@ -44,6 +44,11 @@ public sealed class CsTranslatorVisitor(TextWriter textWriter) : AstNodeExpressi
         return node;
     }
 
+    protected override Expression VisitMissedNode(ExprListNode.MissedNode node)
+    {
+        return node;
+    }
+
     protected override Expression VisitModuleNode(ModuleNode node)
     {
         if (node.Modules != null!)
@@ -193,7 +198,7 @@ public sealed class CsTranslatorVisitor(TextWriter textWriter) : AstNodeExpressi
 
     protected override Expression VisitNumberNode(NumberNode node)
     {
-        textWriter.Write($" {node.Value.ToString(CultureInfo.InvariantCulture)} ");
+        textWriter.Write($" {node} ");
 
         return node;
     }

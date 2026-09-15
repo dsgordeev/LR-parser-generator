@@ -2,27 +2,26 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
-using ParserGenerator.Lexer;
+using ParserGenerator.Grammar;
 using ParserGenerator.Positions;
-using Symbols = Language.Grammar.LanguageGrammar;
 
-namespace Language.LexicalAnalysis;
+namespace ParserGenerator.Lexer;
 
-public class Lexer
+public abstract class Lexer<TLexer> where TLexer : Lexer<TLexer>
 {
-    private string _input = string.Empty;
-    private int _position;
-    private int _row = 1;
-    private int _col = 1;
+    protected string _input = string.Empty;
+    protected int _position;
+    protected int _row = 1;
+    protected int _col = 1;
 
-    public Lexer Reset(string input)
+    public TLexer Reset(string input)
     {
         _input = input;
         _position = 0;
         _row = 1;
         _col = 1;
 
-        return this;
+        return (TLexer)this;
     }
 
     public IEnumerable<Token> Tokenize()
@@ -39,6 +38,12 @@ public class Lexer
 
             // Handle single-line comments
             if (current == '#')
+            {
+                SkipSingleLineComment();
+                continue;
+            }
+
+            if (current == '/' && _position + 1 < _input.Length && _input[_position + 1] == '/')
             {
                 SkipSingleLineComment();
                 continue;
@@ -69,10 +74,14 @@ public class Lexer
                 continue;
             }
 
-            yield return ReadOperatorOrPunctuation();
-        }
+            if (current == '\'')
+            {
+                yield return ReadChar();
+                continue;
+            }
 
-        yield return new Token(Symbols.EOF, null!, new Position(_row, _col, _row, _col));
+            yield return ReturnOperatorOrPunctuation();
+        }
     }
 
     private void HandleWhitespace(char current)
@@ -291,9 +300,9 @@ public class Lexer
             throw new Exception($"Invalid number format at {startRow}:{startCol}: {ex.Message}");
         }
         
-        return new Token(Symbols.NUM, numValue, new Position(startRow, startCol, _row, _col));
+        return ReturnNumToken(numValue, new Position(startRow, startCol, _row, _col));
     }
-
+    
     private static bool IsValidDigit(char c, int numberBase)
     {
         return numberBase <= 10
@@ -324,12 +333,12 @@ public class Lexer
 
         var text = sb.ToString();
 
-        if (Symbols.KeywordSymbols.TryGetValue(text, out var symbol))
+        if (KeywordSymbols.TryGetValue(text, out var symbol))
         {
-            return new Token(symbol, text, new Position(startRow, startCol, _row, _col));
+            return ReturnKeywordToken(symbol, text, new Position(startRow, startCol, _row, _col));
         }
 
-        return new Token(Symbols.ID, text, new Position(startRow, startCol, _row, _col));
+        return ReturnIdToken(text, new Position(startRow, startCol, _row, _col));
     }
 
     private Token ReadString()
@@ -352,103 +361,39 @@ public class Lexer
         }
 
         AdvancePosition(Consume()); // Skip closing quote
-        return new Token(Symbols.STRING, sb.ToString(), new Position(startRow, startCol, _row, _col));
+
+        return ReturnStringToken(sb.ToString(), new Position(startRow, startCol, _row, _col));
     }
 
-    private Token ReadOperatorOrPunctuation()
+    private Token ReadChar()
     {
         var startRow = _row;
         var startCol = _col;
-        var current = Consume();
-        var next = _position < _input.Length ? Peek() : '\0';
+        AdvancePosition(Consume()); // Skip opening quote
+        var sb = new StringBuilder();
 
-        // Handle multi-character operators
-        switch (current)
+        while (_position < _input.Length && Peek() != '\'')
         {
-            case '!' when next == '=':
-                AdvancePosition(current);
-                AdvancePosition(Consume());
-                return new Token(Symbols.NEQ, "!=",
-                    new Position(startRow, startCol, _row, _col));
-            case '<' when next == '=':
-                AdvancePosition(current);
-                AdvancePosition(Consume());
-                return new Token(Symbols.LTE, "<=",
-                    new Position(startRow, startCol, _row, _col));
-            case '>' when next == '=':
-                AdvancePosition(current);
-                AdvancePosition(Consume());
-                return new Token(Symbols.GTE, ">=",
-                    new Position(startRow, startCol, _row, _col));
-            case '|' when next == '|':
-                AdvancePosition(current);
-                AdvancePosition(Consume());
-                return new Token(Symbols.CONCAT, "||",
-                    new Position(startRow, startCol, _row, _col));
-            case '*' when next == '*':
-                AdvancePosition(current);
-                AdvancePosition(Consume());
-                return new Token(Symbols.POWER, "**",
-                    new Position(startRow, startCol, _row, _col));
+            var current = Consume();
+            sb.Append(current);
+            AdvancePosition(current);
         }
 
-        // Handle single-character operators and punctuation
-        AdvancePosition(current);
-
-        Token result = current switch
+        if (_position >= _input.Length)
         {
-            '+' => new Token(Symbols.PLUS, "+",
-                new Position(startRow, startCol, _row, _col)),
-            '-' => new Token(Symbols.MINUS, "-",
-                new Position(startRow, startCol, _row, _col)),
-            '*' => new Token(Symbols.MUL, "*",
-                new Position(startRow, startCol, _row, _col)),
-            '/' => new Token(Symbols.DIV, "/",
-                new Position(startRow, startCol, _row, _col)),
-            '=' => new Token(Symbols.EQ, "=",
-                new Position(startRow, startCol, _row, _col)),
-            '<' => new Token(Symbols.LT, "<",
-                new Position(startRow, startCol, _row, _col)),
-            '>' => new Token(Symbols.GT, ">",
-                new Position(startRow, startCol, _row, _col)),
-            '!' => new Token(Symbols.NOT, "!",
-                new Position(startRow, startCol, _row, _col)),
-            '&' => new Token(Symbols.AND, "&",
-                new Position(startRow, startCol, _row, _col)),
-            '|' => new Token(Symbols.OR, "|",
-                new Position(startRow, startCol, _row, _col)),
-            '^' => new Token(Symbols.XOR, "^",
-                new Position(startRow, startCol, _row, _col)),
-            '(' => new Token(Symbols.LPAREN, "(",
-                new Position(startRow, startCol, _row, _col)),
-            ')' => new Token(Symbols.RPAREN, ")",
-                new Position(startRow, startCol, _row, _col)),
-            '{' => new Token(Symbols.LBRACE, "{",
-                new Position(startRow, startCol, _row, _col)),
-            '}' => new Token(Symbols.RBRACE, "}",
-                new Position(startRow, startCol, _row, _col)),
-            '[' => new Token(Symbols.LBRACKET, "[",
-                new Position(startRow, startCol, _row, _col)),
-            ']' => new Token(Symbols.RBRACKET, "]",
-                new Position(startRow, startCol, _row, _col)),
-            ',' => new Token(Symbols.COMMA, ",",
-                new Position(startRow, startCol, _row, _col)),
-            ';' => new Token(Symbols.SEMI, ";",
-                new Position(startRow, startCol, _row, _col)),
-            ':' => new Token(Symbols.COLON, ":",
-                new Position(startRow, startCol, _row, _col)),
-            '.' => new Token(Symbols.DOT, ".",
-                new Position(startRow, startCol, _row, _col)),
-            _ => throw new Exception($"Unexpected character: '{current}' at {_row}:{_col}")
-        };
+            throw new Exception($"Unterminated char literal at {startRow}:{startCol}");
+        }
 
-        return result;
+        AdvancePosition(Consume()); // Skip closing quote
+
+        return ReturnCharToken(Convert.ToChar(sb.ToString()), new Position(startRow, startCol, _row, _col));
     }
 
-    private char Peek() => _input[_position];
-    private char Consume() => _input[_position++];
+    protected char Peek() => _input[_position];
 
-    private void AdvancePosition(char c)
+    protected char Consume() => _input[_position++];
+
+    protected void AdvancePosition(char c)
     {
         if (c == '\n')
         {
@@ -460,4 +405,18 @@ public class Lexer
             _col++;
         }
     }
+
+    protected abstract IReadOnlyDictionary<string, Symbol> KeywordSymbols { get; }
+
+    protected abstract Token ReturnNumToken(object numValue, Position position);
+
+    protected abstract Token ReturnIdToken(string text, Position position);
+
+    protected abstract Token ReturnKeywordToken(Symbol symbol, string text, Position position);
+
+    protected abstract Token ReturnStringToken(string text, Position position);
+
+    protected abstract Token ReturnCharToken(char c, Position position);
+
+    protected abstract Token ReturnOperatorOrPunctuation();
 }

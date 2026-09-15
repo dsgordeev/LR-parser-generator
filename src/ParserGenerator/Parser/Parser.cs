@@ -44,7 +44,7 @@ public sealed class Parser<TAstNode> where TAstNode : IWithPosition<TAstNode>
         stateStack.Push(new StateId(0)); // Initial state
         using var tokens = new LazyEnumerable<Token>(inputTokens, new Token(_endOfInput, null!, default));
 
-        while (tokens.NotEmpty())
+        while (!(stateStack.Peek().Id == 0 && tokens.Peek().Symbol == _endOfInput))
         {
             var currentState = stateStack.Peek();
             var currentToken = tokens.Peek();
@@ -126,7 +126,6 @@ public sealed class Parser<TAstNode> where TAstNode : IWithPosition<TAstNode>
     private class LazyEnumerable<T> : IDisposable
     {
         private T _peek;
-        private bool _finalWasReturned;
         private readonly T _final;
         private readonly IEnumerator<T> _enumerator;
 
@@ -137,11 +136,8 @@ public sealed class Parser<TAstNode> where TAstNode : IWithPosition<TAstNode>
             _peek = _enumerator.MoveNext() ? _enumerator.Current : _final;
         }
 
-        public bool NotEmpty() => !ReferenceEquals(_peek, _final) || _finalWasReturned == false;
-
         public T Peek()
         {
-            _finalWasReturned = ReferenceEquals(_peek, _final);
             return _peek;
         }
 

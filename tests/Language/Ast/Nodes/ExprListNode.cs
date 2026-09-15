@@ -11,4 +11,11 @@ public class ExprListNode(List<AstNodeExpression> expressions) : AstNodeExpressi
     public override List<AstNodeExpression> AsList() => Expressions;
 
     public override string ToString() => Expressions.Aggregate(new StringBuilder(), (sb, x) => sb.Append($", {x}")).ToString().TrimStart(',');
+
+    public class MissedNode : AstNodeExpression
+    {
+        public override string ToString() => "_";
+    }
+
+    public static readonly MissedNode Missed = new();
 }

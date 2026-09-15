@@ -25,5 +25,5 @@ public class LRState<TAstNode>(StateId id, IEnumerable<LRItem<TAstNode>> items)
         return hash;
     }
 
-    public override string ToString() => $"State {Id}:\r\n{string.Join("\r\n|, ", Items)}";
+    public override string ToString() => $"State {Id}:\r\n{string.Join("\r\n", Items)}";
 }

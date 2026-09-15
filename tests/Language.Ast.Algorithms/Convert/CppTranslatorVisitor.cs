@@ -114,6 +114,11 @@ public class CppTranslatorVisitor(TextWriter textWriter) : AstNodeExpressionVisi
         return node;
     }
 
+    protected override Expression VisitMissedNode(ExprListNode.MissedNode node)
+    {
+        return node;
+    }
+
     protected override Expression VisitModuleNode(ModuleNode node)
     {
         WriteLine("");
@@ -261,7 +266,7 @@ public class CppTranslatorVisitor(TextWriter textWriter) : AstNodeExpressionVisi
 
     protected override Expression VisitNumberNode(NumberNode node)
     {
-        Write(node.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Write(node.ToString());
         return node;
     }
 

@@ -36,6 +36,8 @@ public abstract class AstNodeExpressionVisitor : ExpressionVisitor
 
     protected abstract Expression VisitExprListNode(ExprListNode node);
 
+    protected abstract Expression VisitMissedNode(ExprListNode.MissedNode node);
+
     protected abstract Expression VisitModuleNode(ModuleNode node);
 
     protected abstract Expression VisitFunctionNode(FunctionNode node);
@@ -63,6 +65,11 @@ public abstract class AstNodeExpressionVisitor : ExpressionVisitor
         protected override Expression VisitAstNodeExpression(AstNodeExpression node) => node;
 
         protected override Expression VisitExprListNode(ExprListNode node) => node;
+       
+        protected override Expression VisitMissedNode(ExprListNode.MissedNode node)
+        {
+            return node;
+        }
 
         protected override Expression VisitModuleNode(ModuleNode node) => node;
 
